@@ -1,0 +1,242 @@
+import numpy as np
+import scipy.stats as st
+
+a_rate = [[4.633333333
+,2.633333333
+,2.733333333
+,1.966666667
+,1.633333333
+,1.666666667
+,1.466666667
+,2.166666667
+,3.533333333
+,6.033333333
+,7.633333333
+,9.366666667
+,8.666666667
+,9.233333333
+,7.8
+,6.233333333
+,6.2
+,6.633333333
+,6.333333333
+,7.433333333
+,7.9
+,6.1
+,6.7
+,4.833333333],
+[3.333333333
+,2.433333333
+,1.966666667
+,1.166666667
+,0.9
+,1.033333333
+,0.866666667
+,1.366666667
+,2.166666667
+,3.5
+,4.966666667
+,6.133333333
+,6.5
+,7.233333333
+,6.033333333
+,5.8
+,5.733333333
+,6.033333333
+,8.1
+,6.533333333
+,6.166666667
+,5.4
+,4.866666667
+,3.866666667
+],
+[0.6
+,0.5
+,0.666666667
+,0.466666667
+,0.466666667
+,0.633333333
+,0.433333333
+,0.6
+,0.9
+,1.833333333
+,1.7
+,1.3
+,1.133333333
+,0.833333333
+,0.9
+,0.966666667
+,0.733333333
+,0.766666667
+,0.866666667
+,0.833333333
+,1.133333333
+,0.833333333
+,0.733333333
+,1.066666667
+],
+[0.033333333
+,0
+,0
+,0
+,0
+,0.066666667
+,1.233333333
+,10.56666667
+,9.866666667
+,8.733333333
+,8.333333333
+,5.533333333
+,2.833333333
+,2.2
+,1.366666667
+,0.3
+,0.6
+,0.6
+,0.933333333
+,1.066666667
+,1.033333333
+,0.633333333
+,0.133333333
+,0.1
+],
+[0.166666667
+,0.333333333
+,0.466666667
+,0.366666667
+,0.266666667
+,0.2
+,0.333333333
+,1.1
+,0.9
+,0.6
+,0.766666667
+,0.6
+,0.333333333
+,0.7
+,0.433333333
+,0.4
+,0.433333333
+,0.2
+,0.333333333
+,0.466666667
+,0.266666667
+,0.566666667
+,0.2
+,0.333333333
+]]
+s_time = [67.883,19.487,45.164,67.149,121.309]
+warddic = {0:[1,4,3],
+           1:[4,3,2],
+           2:[0,1,3],
+           3:[2,1,4],
+           4:[3,2,1], }
+tran = [[0,0,0,0,0],
+        [0,0,0.2788,0,0.0563],
+        [0,0,0,0.3659,0],
+        [0,0,0,0,0],
+        [0,0,0,0.2678,0]]
+
+class patient:
+    def __init__(self,wtime,stime):
+        self.wtime = wtime
+        self.stime = stime
+        self.tran = False
+    def cost(self):
+        return self.wtime * 2
+
+
+
+class pf2():
+    def __init__(self,N):
+        self.isd = [[[],[],[],[],[]],[[],[],[],[],[]]];
+        self.N = N
+        self._reset()
+        self.tlist = [[[],[],[],[],[]],[[],[],[],[],[]],[[],[],[],[],[]],[[],[],[],[],[]],[[],[],[],[],[]]]
+
+    def _reset(self):
+        self.state = self.isd
+        self.hour = 1
+
+    def _step(self):
+        for i in range(5):
+            count = 0
+            while count < len(self.state[1][i]):
+                if self.state[1][i][count].tran != True:
+                    self.state[1][i][count].stime -= 1
+                if self.state[1][i][count].stime == 0:
+                    flag = False
+                    for j in range(5):
+                        if tran[i][j] > np.random.rand():
+                            flag = True
+                            self.state[1][i][count].state = True
+                            self.tlist[i][j].append(patient(0,st.geom.ppf(np.random.rand(),1/s_time[j])))
+                    if flag == False:
+                        self.state[1][i].pop(count)
+                        count -= 1
+                count += 1
+            for j in range(len(self.state[0][i])):
+                self.state[0][i][j].wtime += 1
+            come = int(st.poisson.ppf(np.random.rand(),a_rate[i][self.hour]))
+            for j in range(come):
+                self.state[0][i].append(patient(0,st.geom.ppf(np.random.rand(),1/s_time[i])))
+
+        
+        for k in range(3):
+            for i in range(5):
+                for j in range(5):
+                    if len(self.tlist[i][j]) != 0:
+                        if len(self.state[1][j]) < self.N[j]:
+                            for h in range(len(self.state[1][j])):
+                                if len(self.tlist[i][j]) == 0:
+                                    break
+                                self.tlist[i][j][0].tran = False
+                                self.state[1][j].append(self.tlist[i][j][0])   
+                                self.tlist[i][j].pop(0)
+            for i in range(5):
+                if len(self.state[1][i]) + len(self.state[0][i]) <= self.N[i]:
+                    for j in range(len(self.state[0][i])):
+                        self.state[1][i].append(self.state[0][i][0])
+                        self.state[0][i].pop(0)
+                else:
+                    for j in range(self.N[i] - len(self.state[1][i])):
+                        if len(self.state[0][i]) == 0:
+                            break
+                        self.state[1][i].append(self.state[0][i][0])
+                        self.state[0][i].pop(0)
+            for i in range(5):
+                if len(self.state[1][i]) == self.N[i] and len(self.state[0][i]) != 0:
+                    if len(self.state[1][warddic[i][k]]) < self.N[warddic[i][k]] and len(self.state[0][warddic[i][k]]) == 0:
+                        for h in range(self.N[warddic[i][k]] - len(self.state[1][warddic[i][k]])):
+                            if len(self.state[0][i]) == 0:
+                                break
+                            self.state[1][warddic[i][k]].append(self.state[0][i][0])
+                            self.state[0][i].pop(0)
+
+        if self.hour != 23:
+            self.hour += 1
+        else:
+            self.hour = 1
+    
+    def _render(self):
+        print(self.hour)
+        print("Queueing length:",len(self.state[0][0])+len(self.state[0][1])+len(self.state[0][2])+len(self.state[0][3])+len(self.state[0][4]))
+        list = []
+        for i in range(5):
+            count = 0
+            if len(self.state[0][i]) == 0:
+                list.append(0)
+            else:    
+                for j in range(len(self.state[0][i])):
+                    count += self.state[0][i][0].wtime 
+                list.append(count / len(self.state[0][i]))
+        print("Waiting time:",list[0]+list[1]+list[2]+list[3]+list[4]/5)
+        print("Serve number:",len(self.state[1][0]),len(self.state[1][1]),len(self.state[1][2]),len(self.state[1][3]),len(self.state[1][4]))
+
+a = pf2([250,100,90,190,80])
+
+for i in range(360):
+    a._step()
+    a._render()
+
+
