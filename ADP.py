@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.stats as st
+from itertools import combinations
+import CNN
 
 a_rate = [[4.633333333
 ,2.633333333
@@ -150,7 +152,10 @@ class pf():
         [[[],[],[],[],[]],[[],[],[],[],[]],[[],[],[],[],[]],[[],[],[],[],[]],[[],[],[],[],[]]]]
         self.N = N
         self._reset()
-
+        self.a_space = self.action_space()
+        self.nA = len(self.a_space)
+    
+    #Initialized the environment
     def _reset(self):
         self.state = [[[],[],[],[],[]],
         [[],[],[],[],[]],
@@ -158,22 +163,9 @@ class pf():
         self.hour = 1
         self.r = 0
     
+    #The stop codition
     def end(self):
         return self.hour == 168
-    
-    #The action space
-    def action_space(self):
-        f_space = [] 
-        f = [[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]]
-        dict_o = {0:[],1:[],2:[],3:[],4:[]}
-        dict_t = {0:[],1:[],2:[],3:[],4:[]}
-        for i in range(5):
-            for j in warddic[i]:
-                for xij in range(3):
-                    f[0][i][j] = xij
-                    if f not in f_space:
-                        dict_0[i] = 
-                    
 
     #The one-step-cost                
     def reward(self,action):
@@ -185,89 +177,221 @@ class pf():
                 r += action[1][i][k] * D
         self.r = r
     
+    #List all possible action. We set a overflow limit of 1 and transfer limit of 1 
+    def action_space(self):
+        a_space = []
+        dict_o = {0:[],1:[],2:[],3:[],4:[]}
+        dict_t = {0:[[0,0,0,0,0]],1:[[0,0,0,0,0]],2:[[0,0,0,0,0]],3:[[0,0,0,0,0]],4:[[0,0,0,0,0]]}
+        for i in range(5):
+            o = [0,0,0,0,0]
+            dict_o[i].append(o)
+            if len(self.state[0][i]) != 0:
+                for j in range(3):
+                    if len(self.state[1][warddic[i][j]]) + len(self.state[2][i][0]) + len(self.state[2][i][1]) + len(self.state[2][i][2]) + len(self.state[2][i][3]) +len(self.state[2][i][4]) >= self.N[warddic[i][j]]:
+                        continue
+                    else:
+                        o = [0,0,0,0,0]
+                        o[warddic[i][j]] = 1    
+                        dict_o[i].append(o)
+            for j in range(5):
+                if tran[i][j] != 0:
+                    if len(self.state[2][i][j]) == 0:
+                        continue
+                    if len(self.state[0][j]) >= 90:
+                        continue
+                    t = [0,0,0,0,0]
+                    t[j] =  1
+                    dict_t[i].append(t)
+        a1_s = []
+        a2_s = []    
+        for i in dict_o[0]:
+            for j in dict_o[1]:
+                for k in dict_o[2]:
+                    for h in dict_o[3]:
+                        for m in dict_o[4]:
+                            f = [i,j,k,h,m]
+                            a1_s.append(f)
+        for i in dict_t[0]:
+            for j in dict_t[1]:
+                for k in dict_t[2]:
+                    for h in dict_t[3]:
+                        for m in dict_t[4]:
+                            g = [i,j,k,h,m]
+                            a2_s.append(g)
+        for i in a1_s:
+            for j in a2_s:
+                a = [i,j]
+                a_space.append(a)
+
+        return a_space                     
+    
+    #Calculate all possible next state
+    def state_space(self,s):
+        s_space = []
+        d = [[],[],[],[],[]]
+        t = {0:'N',1:{0:[[0,0]]},2:{0:[0]},3:'N',4:{0:[0]}}
+        for i in range(5):
+            #First calculate possible leaving patient and transfer patient
+            if s[1][i] + sum(s[2][i]) <= self.N[i]:
+                if s[1][i] != 0:
+                    d_ = 0
+                    while st.binom.pmf(d_,s[1][i],1/s_time[i]) >= 0.01:
+                        d[i].append(d_)
+                        if i == 1 and d_ > 0:
+                            t[1][d_] = []
+                            t_2 = 0
+                            while st.binom.pmf(t_2,d_,tran[1][2]) >= 0.01:
+                                t_4 = 0
+                                if d_ - t_2 > 0:
+                                    while st.binom.pmf(t_4,d_ - t_2,tran[1][4]) >= 0.01:
+                                        t[1][d_].append([t_2,t_4])
+                                        t_4 += 1
+                                        if t_4 > d_ - t_2:
+                                            break
+                                t_2 += 1 
+                                if t_2 > d_:
+                                    break
+                        if i == 2 and d_ > 0:
+                            t[2][d_] = [0]
+                            t_ = 1
+                            while st.binom.pmf(t_,d_,tran[2][3]) >= 0.01:
+                                t[2][d_].append(t_)
+                                t_ += 1
+                                if t_ > d_:
+                                    break
+                        if i == 4 and d_ > 0:
+                            t[4][d_] = []
+                            t_ = 0
+                            while st.binom.pmf(t_,d_,tran[4][3]) >= 0.01:
+                                t[4][d_].append(t_)
+                                t_ += 1
+                                if t_ > d_:
+                                    break
+                        d_ += 1
+                        if d_ > s[1][i]:
+                            break
+                if s[1][i] == 0:
+                    d[i].append(0)
+            
+            s_d = {0:[],1:[],2:[],3:[],4:[]}
+            for i in range(5):
+                for leave in d[i]:
+                    if i == 1:
+                        for j in t[1][leave]:
+                            tp = sum(j)
+                            if s[1][i] + sum(s[2][i]) + tp - leave >= self.N[i]:
+                                a = 0
+                            if s[1][i] + sum(s[2][i]) + tp - leave < self.N[i]:
+                                a = 0
+                                while st.poisson.pmf(a,a_rate[i][self.hour%24]) >= 0.01:
+                                    tr2 = j[0]+s[2][1][2]
+                                    tr4 = s[2][1][4] + j[1]
+                                    tr = [0,0,0,tr2,0,tr4]
+                                    if a + s[0][i] + s[1][i] + sum(s[2][i]) + tp - leave <= self.N[i]:
+                                        wait = 0
+                                        ward = s[1][i] - leave + tp + sum(s[2][i]) + a + s[0][i]
+                                    else:
+                                        wait = s[0][i] + a - leave + tp
+                                        ward = self.N[i] - sum(tr)  
+                                    s_d[i].append([wait,ward,tr])
+                                    a += 1
+                                    if a + s[0][i] - leave + tp > 90:
+                                        break
+                    if t[i] == 'N':
+                        tp = 0
+                        if s[1][i] + sum(s[2][i]) + tp - leave >= self.N[i]:
+                            a = 0
+                        if s[1][i] + sum(s[2][i]) + tp - leave < self.N[i]:
+                            a = 0
+                            while st.poisson.pmf(a,a_rate[i][self.hour%24]) >= 0.01:
+                                tr = [0,0,0,0,0]
+                                if a + s[0][i] + s[1][i] + sum(s[2][i]) + tp - leave <= self.N[i]:
+                                    wait = 0
+                                    ward = s[1][i] - leave + tp + sum(s[2][i]) + a + s[0][i]
+                                else:
+                                    wait = s[0][i] + a - leave + tp
+                                    ward = self.N[i] - sum(tr)  
+                                s_d[i].append([wait,ward,tr])
+                                a += 1
+                                if a + s[0][i] - leave + tp > 90:
+                                    break
+                    if i == 2 or i == 4:
+                        for j in t[i][leave]:
+                            tp = j
+                            if s[1][i] + sum(s[2][i]) + tp - leave >= self.N[i]:
+                                a = 0
+                            if s[1][i] + sum(s[2][i]) + tp - leave < self.N[i]:
+                                a = 0
+                                while st.poisson.pmf(a,a_rate[i][self.hour%24]) >= 0.01:
+                                    if i == 2:
+                                        tr = [0,0,0,0,s[2][2][4] + j]
+                                    if i == 4:
+                                        tr = [0,0,0,s[2][4][3] + j,0]
+                                    if a + s[0][i] + s[1][i] + sum(s[2][i]) + tp - leave <= self.N[i]:
+                                        wait = 0
+                                        ward = s[1][i] - leave + tp + sum(s[2][i]) + a + s[0][i]
+                                    else:
+                                        wait = s[0][i] + a - leave + tp
+                                        ward = self.N[i] - sum(tr)  
+                                    s_d[i].append([wait,ward,tr])
+                                    a += 1
+                                    if a + s[0][i] - leave + tp > 90:
+                                        break
+
+
+            
+            for i in s_d[0]:
+                for j in s_d[1]:
+                    for k in s_d[2]:
+                        for h in s_d[3]:
+                            for l in s_d[4]:
+                                state = [i[0],j[0],k[0],h[0],l[0]],[i[1],j[1],k[1],h[1],l[1]],[i[2],j[2],k[2],h[2],l[2]]
+                                s_space.append(state)
+
+        return s_space
+
     #Check if the action is valid
     def valid_action(self,action):
         for i in range(5):
             #Check waiting pool
-            if len(self.state[0][i]) < len(action[0][i][0]) + len(action[0][i][1]) + len(action[0][i][2]) + len(action[0][i][3]) + len(action[0][i][4]):
+            if len(self.state[0][i]) < action[0][i][0] + action[0][i][1] + action[0][i][2] + action[0][i][3] + action[0][i][4]:
                 return False
             for j in range(5):
                 #Check wards
-                if len(action[0][i][j]) + len(self.state[1][j]) + len(self.state[2][j][0]) + len(self.state[2][j][1]) + len(self.state[2][j][2]) + len(self.state[2][j][3]) + len(self.state[2][j][4]) > self.N[j]:
+                if action[0][i][j] + len(self.state[1][j]) + len(self.state[2][j][0]) + len(self.state[2][j][1]) + len(self.state[2][j][2]) + len(self.state[2][j][3]) + len(self.state[2][j][4]) > self.N[j]:
                     return False
+        return True
            
     #The transition probability to state s
-    def p(self,s,action):
-        #State transfer under given action
-        state = self.state
-        for j in range(5):
-            for k in range(5):
-                number1 = action[0][j][k]
-                if number1 != 0:
-                    for x in range(number1):
-                        state[1][k].append(self.state[0][j][0][1])
-                        state[0][j].pop(0)
-                        if len(state[0][j]) == 0:
-                            break
-                        number2 = action[1][j][k]
-                #Sign transfer patients
-                if number2 != 0:
-                    for x in range(number2):
-                        state[0][k].append([0,state[2][j][k][0]])
-                        state[2][j][k].pop(0)
-                        if len(state[2][j][k]) == 0:
-                            break
-        s = [[],[],
-        [[],[],[],[],[]]]
-        for i in range(2):
-            for j in range(5):
-                s[i].append(len(state[i][j]))
-
-        for i in range(5):
-            for j in range(5):
-                s[2][i].append(len(state[2][i][j]))
-
+    def P(self,s,action):
+        state = self.pre_step(action)
         P = 1
         for i in range(5):
-            d = len(s[1][i]) - len(self.state[1][i])
-            a = len(s[0][i]) - len(self.state[0][i]) 
-            P *= st.poisson.pmf(a,a_rate[i][t%24])
-            P *= st.geom.pmf(d,s_time[i])
+            d = s[1][i] - state[1][i]
+            a = s[0][i] - state[0][i]
+            P *= st.poisson.pmf(a,a_rate[i][self.hour%24])
+            P *= st.binom.pmf(d,state[1][i],1/s_time[i])
             for j in range(5):
                 if tran[i][j] != 0:
-                    c = s[2][i][j] - self.state[2][i][j]
-                    P *= st.binom(c,d,tran[i][j])
-        return p
+                    c = s[2][i][j] - state[2][i][j]
+                    P *= st.binom.pmf(c,d,tran[i][j])
+        return P
     
     def pre_step(self,action):
         #State transfer under given action
-        state = self.state
-        for j in range(5):
-            for k in range(5):
-                number1 = action[0][j][k]
-                if number1 != 0:
-                    for x in range(number1):
-                        state[1][k].append(self.state[0][j][0][1])
-                        state[0][j].pop(0)
-                        if len(state[0][j]) == 0:
-                            break
-                number2 = action[1][j][k]
-                #Sign transfer patients
-                if number2 != 0:
-                    for x in range(number2):
-                        state[0][k].append([0,state[2][j][k][0]])
-                        state[2][j][k].pop(0)
-                        if len(state[2][j][k]) == 0:
-                            break
         s = [[],[],
         [[],[],[],[],[]]]
-        for i in range(2):
-            for j in range(5):
-                s[i].append(len(state[i][j]))
-
         for i in range(5):
+            xi = len(self.state[0][i])
+            yi = len(self.state[1][i])
             for j in range(5):
-                s[2][i].append(len(state[2][i][j]))
+                xi -= action[0][i][j]
+                yi += action[0][j][i]
+                zij = len(self.state[2][i][j]) - action[1][i][j]
+                s[2][i].append(zij)
+            s[0].append(xi)
+            s[1].append(yi)
+
         return s
 
     def _step(self,action):
@@ -285,6 +409,8 @@ class pf():
                 #Sign transfer patients
                 if number2 != 0:
                     for x in range(number2):
+                        print(x)
+                        print(self.state,j,k)
                         self.state[0][k].append([0,self.state[2][j][k][0]])
                         self.state[2][j][k].pop(0)
                         if len(self.state[2][j][k]) == 0:
@@ -351,32 +477,34 @@ class pf():
             for j in range(5):
                 s[2][i].append(len(self.state[2][i][j]))
 
-        return s , self.r
+        return s 
 
-
-def policy_evaluattion(env,policy,gamma = 0.9):
-    s_space = env.s_space()
-    f_space = env.f_space()
-    min_reward = 0
-    for f in f_space:
-        reward_ = (1 - gamma) * env.reward(f_space)
-        if min_reward == 0:
-            min_reward = reward_
-            policy = f
-        for s in s_space():
-            P = env.p(state)
-            reward_ -= gamma * P * model(s)
-        if reward_ <= min_reward:
-            min_reward = reward
-            policy = f
-    return f
-
-        
-def policy_improvement(env,policy):
-
-
+def find_best(env):
+    min_v = 1000000
+    best_action = [[[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]]
+    if env.action_space() == [best_action]:
+        return best_action
+    for action in env.action_space():
+        #print(action)
+        pre_s = env.pre_step(action)
+        v = env.reward(action)
+        for state in env.state_space(pre_s):
+            v = 1
+            v += env.P(state,action) * model.predict(state)
+            if v <= min_v:
+                min_v = v
+                best_action = action
     
+    return action
 
 
+n = [100,90,90,100,90]
+p = pf(n)
 
-p = pf([])
+for t in range(68):
+    print(t)
+    action = find_best(p)
+    print(action)
+    p._step(action)
+    #print(p._render())
+
